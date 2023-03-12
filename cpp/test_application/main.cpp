@@ -49,6 +49,27 @@ int main(int argc, char **argv)
     CHECK(true == mpu.getTemperature(temperature));
     std::cout<<"Temperature "<<temperature<<std::endl;
 
+    int16_t accelX {0x0};
+    int16_t accelY {0x0};
+    int16_t accelZ {0x0};
+    CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
+    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
+
+    CHECK(true == mpu.setAccelScaleRange4G());
+    DELAY(500ms);
+    CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
+    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
+
+    CHECK(true == mpu.setAccelScaleRange8G());
+    DELAY(500ms);
+    CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
+    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;    
+
+    CHECK(true == mpu.setAccelScaleRange16G());
+    DELAY(500ms);
+    CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
+    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
+
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
 

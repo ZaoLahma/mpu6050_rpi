@@ -104,6 +104,26 @@ bool Mpu6050::resetRegisters()
     return writeRegister(MPU6050_REG_PWR_PGMT, MPU6050_REG_RESET_MASK);
 }
 
+bool Mpu6050::setAccelScaleRange2G()
+{
+    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_2G);
+}
+
+bool Mpu6050::setAccelScaleRange4G()
+{
+    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_4G);
+}
+
+bool Mpu6050::setAccelScaleRange8G()
+{
+    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_8G);
+}
+
+bool Mpu6050::setAccelScaleRange16G()
+{
+    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_16G);
+}
+
 bool Mpu6050::getTemperature(int16_t& temperature)
 {
     bool retVal {false};
@@ -116,6 +136,50 @@ bool Mpu6050::getTemperature(int16_t& temperature)
     calculatedTemperature = std::roundf(calculatedTemperature);
 
     temperature = static_cast<int16_t>(calculatedTemperature);
+
+    return retVal;
+}
+
+bool Mpu6050::getAcceleration(int16_t& x, int16_t& y, int16_t& z)
+{
+    bool retVal {false};
+
+    uint8_t accelConfig {0x0u};
+
+    retVal = readRegister(MPU6050_REG_ACCEL_CONFIG, accelConfig);
+
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, x);
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, y);
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, z);
+
+    float scalingFactor = 16384.0f;
+
+    /* TODO: Fix the switch below */
+    switch (accelConfig)
+    {
+        case MPU6050_ACCEL_SCALE_RANGE_2G:
+        scalingFactor = 16384.0f;
+        break;
+        case MPU6050_ACCEL_SCALE_RANGE_4G:
+        break;
+        case MPU6050_ACCEL_SCALE_RANGE_8G:
+        break;
+        case MPU6050_ACCEL_SCALE_RANGE_16G:
+        break;
+        default:
+        break;
+    }
+
+    float scaledValue = 0.0f;
+    scaledValue = x / scalingFactor;
+    scaledValue = std::roundf(scaledValue);
+    x = scaledValue;
+    scaledValue = y / scalingFactor;
+    scaledValue = std::roundf(scaledValue);
+    y = scaledValue;
+    scaledValue = z / scalingFactor;
+    scaledValue = std::roundf(scaledValue);
+    z = scaledValue;
 
     return retVal;
 }
@@ -164,6 +228,11 @@ bool Mpu6050::getSensorData(uint8_t mpu6050RegisterHigh, uint8_t mpu6050Register
     std::cout<<"Returning value "<<value<<std::endl;
 
     return retVal;
+}
+
+bool Mpu6050::setAccelScaleRange(const uint8_t accelScaleConfig)
+{
+    return writeRegister(MPU6050_REG_ACCEL_CONFIG, accelScaleConfig);
 }
 
 } /* Namespace mpu6050 */
