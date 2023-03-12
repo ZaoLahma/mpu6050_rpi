@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# IDE junk
+.vscode
+
+# CMake junk
+build
