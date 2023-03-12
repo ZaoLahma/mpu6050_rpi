@@ -8,6 +8,8 @@
 
 #define CHECK(statement)if (!(statement)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK - "<<#statement<<" FAILED "<<std::endl; return 1; }
 #define CHECK_EQ(this, that)if (!(this == that)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK_EQ - "<<#this<<" "<<"("<<this<<")"<<" != "<<#that<<" ("<<that<<")"<<std::endl; return 1; }
+#define DELAY(time) std::this_thread::sleep_for(time)
+
 
 using namespace std::chrono_literals;
 int main(int argc, char **argv)
@@ -16,13 +18,13 @@ int main(int argc, char **argv)
     UNUSED(argv);
     std::cout<<"Test application starting\n";
 
-    int expectedRegValue = 0x0;
-    int regValue = 0;
+    uint8_t expectedRegValue = 0x0;
+    uint8_t regValue = 0;
 
     mpu6050::Mpu6050 mpu;
     mpu.resetRegisters();
 
-    std::this_thread::sleep_for(500ms);
+    DELAY(500ms);
     expectedRegValue = 0x40; /* Init state */
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
@@ -30,15 +32,27 @@ int main(int argc, char **argv)
     std::cout<<"WAKEUP"<<std::endl;
     CHECK(true == mpu.wakeup());
 
-    std::this_thread::sleep_for(500ms);
+    DELAY(500ms);
     expectedRegValue = 0x0;
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
 
+    std::cout<<"ENABLE TEMPERATURE"<<std::endl;
+    CHECK(true == mpu.enableTemperatureSensor());
+
+    DELAY(500ms);
+    expectedRegValue = 0x0u;
+    CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
+    CHECK_EQ(expectedRegValue, regValue);
+
+    int16_t temperature = 0x0u;
+    CHECK(true == mpu.getTemperature(temperature));
+    std::cout<<"Temperature "<<temperature<<std::endl;
+
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
 
-    std::this_thread::sleep_for(500ms);
+    DELAY(500ms);
     expectedRegValue = 0x40;
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
