@@ -10,6 +10,7 @@
 /* OS dependencies */
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 /* External dependencies */
 extern "C"
@@ -40,73 +41,45 @@ Mpu6050::Mpu6050(uint8_t i2cAddr) : m_i2cAddr(i2cAddr)
     }
 }
 
+Mpu6050::~Mpu6050()
+{
+    close(m_i2cFileDescriptor);
+    m_i2cFileDescriptor = -1;
+}
+
 bool Mpu6050::wakeup()
 {
-    bool retVal {false};
-    uint8_t regValue {0x0u};
-    if (true == readRegister(MPU6050_REG_PWR_PGMT, regValue))
-    {
-        regValue &= ~MPU6050_REG_SLEEP_MASK;
-        if (writeRegister(MPU6050_REG_PWR_PGMT, regValue))
-        {
-            retVal = true;
-        }
-    }
-
-    return retVal;
+    return setRegisterValue(MPU6050_REG_PWR_PGMT, MPU6050_REG_SLEEP_MASK, false);
 }
 
 bool Mpu6050::sleep()
 {
-    bool retVal {false};
-    uint8_t regValue {0x0u};
-    if (true == readRegister(MPU6050_REG_PWR_PGMT, regValue))
-    {
-        regValue |= MPU6050_REG_SLEEP_MASK;
-        if (writeRegister(MPU6050_REG_PWR_PGMT, regValue))
-        {
-            retVal = true;
-        }
-    }
-
-    return retVal;
+    return setRegisterValue(MPU6050_REG_PWR_PGMT, MPU6050_REG_SLEEP_MASK, true);
 }
 
 bool Mpu6050::enableTemperatureSensor()
 {
-    bool retVal {false};
-    uint8_t regValue {0x0u};
-    if (true == readRegister(MPU6050_REG_PWR_PGMT, regValue))
-    {
-        regValue &= ~MPU6050_REG_TEMP_DISABLE_MASK;
-        if (writeRegister(MPU6050_REG_PWR_PGMT, regValue))
-        {
-            retVal = true;
-        }
-    }
-
-    return retVal;
+    return setRegisterValue(MPU6050_REG_PWR_PGMT, MPU6050_REG_TEMP_DISABLE_MASK, false);
 }
 
 bool Mpu6050::disableTemperatureSensor()
 {
-    bool retVal {false};
-    uint8_t regValue {0x0u};
-    if (true == readRegister(MPU6050_REG_PWR_PGMT, regValue))
-    {
-        regValue |= MPU6050_REG_TEMP_DISABLE_MASK;
-        if (writeRegister(MPU6050_REG_PWR_PGMT, regValue))
-        {
-            retVal = true;
-        }
-    }
-
-    return retVal;
+    return setRegisterValue(MPU6050_REG_PWR_PGMT, MPU6050_REG_TEMP_DISABLE_MASK, true);
 }
 
 bool Mpu6050::resetRegisters()
 {
     return writeRegister(MPU6050_REG_PWR_PGMT, MPU6050_REG_RESET_MASK);
+}
+
+bool Mpu6050::getFIFOSampleCount(uint16_t count)
+{
+    return getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count);
+}
+
+bool Mpu6050::enableTemperatureSensorFIFO()
+{
+    return setRegisterValue(MPU6050_REG_FIFO_ENABLE, MPU6050_REG_FIFO_TEMP_ENABLE_MASK, true);
 }
 
 bool Mpu6050::setAccelScaleRange2G()
@@ -133,10 +106,10 @@ bool Mpu6050::getTemperature(float& temperature)
 {
     bool retVal {false};
 
-    int16_t registerValue = 0.0f;
-    retVal = getSensorData(MPU6050_REG_TEMP_HIGH, MPU6050_REG_TEMP_LOW, registerValue);
+    uint16_t registerValue {0x0u};
+    retVal = getRegisterWord(MPU6050_REG_TEMP_HIGH, MPU6050_REG_TEMP_LOW, registerValue);
 
-    temperature = registerValue * MPU6050_TEMP_DATA_SCALING_FACTOR;
+    temperature = static_cast<int16_t>(registerValue) * MPU6050_TEMP_DATA_SCALING_FACTOR;
     temperature = temperature + MPU6050_TEMP_DATA_OFFSET;
 
     return retVal;
@@ -150,12 +123,12 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
 
     retVal = readRegister(MPU6050_REG_ACCEL_CONFIG, accelConfig);
 
-    int16_t xRead;
-    int16_t yRead;
-    int16_t zRead;
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, xRead);
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, yRead);
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, zRead);
+    uint16_t xRead;
+    uint16_t yRead;
+    uint16_t zRead;
+    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, xRead);
+    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, yRead);
+    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, zRead);
 
     float scalingFactor {0.0f};
 
@@ -175,15 +148,16 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
         scalingFactor = MPU6050_ACCEL_SCALE_16G_FACTOR;
         break;
         default:
+        retVal = false;
         break;
     }
 
     float scaledValue = 0.0f;
-    scaledValue = xRead * scalingFactor;
+    scaledValue = static_cast<int16_t>(xRead) * scalingFactor;
     x = scaledValue;
-    scaledValue = yRead * scalingFactor;
+    scaledValue = static_cast<int16_t>(yRead) * scalingFactor;
     y = scaledValue;
-    scaledValue = zRead * scalingFactor;
+    scaledValue = static_cast<int16_t>(zRead) * scalingFactor;
     z = scaledValue;
 
     return retVal;
@@ -214,13 +188,38 @@ bool Mpu6050::readRegister(const uint8_t mpu6050Register, uint8_t& value)
     return retVal;
 }
 
-bool Mpu6050::getSensorData(uint8_t mpu6050RegisterHigh, uint8_t mpu6050RegisterLow, int16_t& value)
+bool Mpu6050::setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitmask, const bool set)
+{
+    bool retVal {false};
+
+    uint8_t regValue {0x0u};
+    if (readRegister(mpu6050Register, regValue))
+    {
+        if (set)
+        {
+            regValue |= bitmask;
+        }
+        else
+        {
+            regValue &= ~bitmask;
+        }
+
+        if (writeRegister(mpu6050Register, regValue))
+        {
+            retVal = true;
+        }
+    }
+
+    return retVal;
+}
+
+bool Mpu6050::getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t mpu6050RegisterLow, uint16_t& value)
 {
     bool retVal {true};
 
     value = 0x0u;
 
-    uint8_t readValue = 0x0u;
+    uint8_t readValue {0x0u};
 
     retVal = readRegister(mpu6050RegisterHigh, readValue);
     value = (readValue << MPU6050_SENSOR_DATA_OFFSET_HIGH);

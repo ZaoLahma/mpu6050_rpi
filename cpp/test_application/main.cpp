@@ -70,6 +70,13 @@ int main(int argc, char **argv)
     CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
     std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
 
+    CHECK(true == mpu.enableTemperatureSensorFIFO());
+    DELAY(500ms);
+
+    uint16_t fifoCount {0x0u};
+    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
+    std::cout<<"Fifo count "<<fifoCount<<std::endl;
+
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
 

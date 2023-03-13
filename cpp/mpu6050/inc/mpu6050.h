@@ -13,7 +13,14 @@ constexpr uint8_t MPU6050_REG_SLEEP_MASK               {1u << 6u};
 constexpr uint8_t MPU6050_REG_RESET_MASK               {1u << 7u};
 constexpr uint8_t MPU6050_REG_TEMP_DISABLE_MASK        {1u << 4u};
 
+constexpr uint8_t MPU6050_REG_FIFO_TEMP_ENABLE_MASK    {1u << 7u};
+constexpr uint8_t MPU6050_REG_FIFO_ACCEL_ENABLE_MASK   {1u << 3u};
+
 /* Registers */
+constexpr uint8_t MPU6050_REG_FIFO_ENABLE              {0x23u};
+constexpr uint8_t MPU6050_REG_FIFO_COUNT_HIGH          {0x72u};
+constexpr uint8_t MPU6050_REG_FIFO_COUNT_LOW           {0x73u};
+
 constexpr uint8_t MPU6050_REG_PWR_PGMT                 {0x6Bu};
 
 constexpr uint8_t MPU6050_REG_TEMP_HIGH                {0x41u};
@@ -50,6 +57,7 @@ class Mpu6050
 {
     public:
     Mpu6050(uint8_t i2cAddr = MPU6050_DEFAULT_I2C_ADDR);
+    ~Mpu6050();
 
     /* Power and device state management */
     bool wakeup();
@@ -57,6 +65,10 @@ class Mpu6050
     bool enableTemperatureSensor();
     bool disableTemperatureSensor();
     bool resetRegisters();
+
+    /* FIFO state management */
+    bool getFIFOSampleCount(uint16_t count);
+    bool enableTemperatureSensorFIFO();
 
     /* Sensor configuration */
     bool setAccelScaleRange2G();
@@ -80,7 +92,9 @@ class Mpu6050
     uint8_t m_i2cAddr;
     int m_i2cFileDescriptor;
 
-    bool getSensorData(uint8_t mpu6050RegisterHigh, uint8_t mpu6050RegisterLow, int16_t& value);
+    bool setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitmask, const bool set);
+
+    bool getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t mpu6050RegisterLow, uint16_t& value);
 
     bool setAccelScaleRange(const uint8_t accelScaleConfig);
 };
