@@ -1,18 +1,23 @@
 #include "mpu6050.h"
 
+/* C++ */
 #include <string_view>
 #include <string>
 #include <iostream>
 #include <stdlib.h>
 #include <cmath> 
 
+/* OS dependencies */
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-extern "C" {
+/* External dependencies */
+extern "C"
+{
     #include <linux/i2c-dev.h>
     #include <i2c/smbus.h>
 }
+
 
 namespace mpu6050
 {
@@ -106,41 +111,38 @@ bool Mpu6050::resetRegisters()
 
 bool Mpu6050::setAccelScaleRange2G()
 {
-    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_2G);
+    return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G);
 }
 
 bool Mpu6050::setAccelScaleRange4G()
 {
-    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_4G);
+    return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_4G);
 }
 
 bool Mpu6050::setAccelScaleRange8G()
 {
-    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_8G);
+    return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_8G);
 }
 
 bool Mpu6050::setAccelScaleRange16G()
 {
-    return setAccelScaleRange(MPU6050_ACCEL_SCALE_RANGE_16G);
+    return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_16G);
 }
 
-bool Mpu6050::getTemperature(int16_t& temperature)
+bool Mpu6050::getTemperature(float& temperature)
 {
     bool retVal {false};
 
     int16_t registerValue = 0.0f;
     retVal = getSensorData(MPU6050_REG_TEMP_HIGH, MPU6050_REG_TEMP_LOW, registerValue);
 
-    float calculatedTemperature = registerValue * MPU6050_TEMP_DATA_SCALING_FACTOR;
-    calculatedTemperature = calculatedTemperature + MPU6050_TEMP_DATA_OFFSET;
-    calculatedTemperature = std::roundf(calculatedTemperature);
-
-    temperature = static_cast<int16_t>(calculatedTemperature);
+    temperature = registerValue * MPU6050_TEMP_DATA_SCALING_FACTOR;
+    temperature = temperature + MPU6050_TEMP_DATA_OFFSET;
 
     return retVal;
 }
 
-bool Mpu6050::getAcceleration(int16_t& x, int16_t& y, int16_t& z)
+bool Mpu6050::getAcceleration(float& x, float& y, float& z)
 {
     bool retVal {false};
 
@@ -148,37 +150,40 @@ bool Mpu6050::getAcceleration(int16_t& x, int16_t& y, int16_t& z)
 
     retVal = readRegister(MPU6050_REG_ACCEL_CONFIG, accelConfig);
 
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, x);
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, y);
-    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, z);
+    int16_t xRead;
+    int16_t yRead;
+    int16_t zRead;
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, xRead);
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, yRead);
+    retVal = retVal && getSensorData(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, zRead);
 
-    float scalingFactor = 16384.0f;
+    float scalingFactor {0.0f};
 
     /* TODO: Fix the switch below */
     switch (accelConfig)
     {
-        case MPU6050_ACCEL_SCALE_RANGE_2G:
-        scalingFactor = 16384.0f;
+        case MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G:
+        scalingFactor = MPU6050_ACCEL_SCALE_2G_FACTOR;
         break;
-        case MPU6050_ACCEL_SCALE_RANGE_4G:
+        case MPU6050_ACCEL_CONFIG_SCALE_RANGE_4G:
+        scalingFactor = MPU6050_ACCEL_SCALE_4G_FACTOR;
         break;
-        case MPU6050_ACCEL_SCALE_RANGE_8G:
+        case MPU6050_ACCEL_CONFIG_SCALE_RANGE_8G:
+        scalingFactor = MPU6050_ACCEL_SCALE_8G_FACTOR;
         break;
-        case MPU6050_ACCEL_SCALE_RANGE_16G:
+        case MPU6050_ACCEL_CONFIG_SCALE_RANGE_16G:
+        scalingFactor = MPU6050_ACCEL_SCALE_16G_FACTOR;
         break;
         default:
         break;
     }
 
     float scaledValue = 0.0f;
-    scaledValue = x / scalingFactor;
-    scaledValue = std::roundf(scaledValue);
+    scaledValue = xRead * scalingFactor;
     x = scaledValue;
-    scaledValue = y / scalingFactor;
-    scaledValue = std::roundf(scaledValue);
+    scaledValue = yRead * scalingFactor;
     y = scaledValue;
-    scaledValue = z / scalingFactor;
-    scaledValue = std::roundf(scaledValue);
+    scaledValue = zRead * scalingFactor;
     z = scaledValue;
 
     return retVal;
@@ -219,13 +224,9 @@ bool Mpu6050::getSensorData(uint8_t mpu6050RegisterHigh, uint8_t mpu6050Register
 
     retVal = readRegister(mpu6050RegisterHigh, readValue);
     value = (readValue << MPU6050_SENSOR_DATA_OFFSET_HIGH);
-    std::cout<<"registerValue high "<<(uint32_t)readValue<<std::endl;
 
     retVal = retVal && readRegister(mpu6050RegisterLow, readValue);
     value = value | (readValue << MPU6050_SENSOR_DATA_OFFSET_LOW);
-    std::cout<<"registerValue low "<<(uint32_t)readValue<<std::endl;
-
-    std::cout<<"Returning value "<<value<<std::endl;
 
     return retVal;
 }

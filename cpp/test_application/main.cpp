@@ -18,8 +18,8 @@ int main(int argc, char **argv)
     UNUSED(argv);
     std::cout<<"Test application starting\n";
 
-    uint8_t expectedRegValue = 0x0;
-    uint8_t regValue = 0;
+    uint8_t expectedRegValue {0x0};
+    uint8_t regValue {0};
 
     mpu6050::Mpu6050 mpu;
     mpu.resetRegisters();
@@ -45,13 +45,13 @@ int main(int argc, char **argv)
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
 
-    int16_t temperature = 0x0u;
+    float temperature {0.0f};
     CHECK(true == mpu.getTemperature(temperature));
     std::cout<<"Temperature "<<temperature<<std::endl;
 
-    int16_t accelX {0x0};
-    int16_t accelY {0x0};
-    int16_t accelZ {0x0};
+    float accelX {0.0f};
+    float accelY {0.0f};
+    float accelZ {0.0f};
     CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
     std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
 

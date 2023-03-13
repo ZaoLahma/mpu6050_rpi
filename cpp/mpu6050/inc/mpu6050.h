@@ -35,11 +35,16 @@ constexpr uint8_t MPU6050_SENSOR_DATA_OFFSET_LOW       {0u};
 constexpr float MPU6050_TEMP_DATA_SCALING_FACTOR       {1.0f / 340.0f};
 constexpr float MPU6050_TEMP_DATA_OFFSET               {36.53f};
 
+constexpr float MPU6050_ACCEL_SCALE_2G_FACTOR          {1.0f / 16384.0f};
+constexpr float MPU6050_ACCEL_SCALE_4G_FACTOR          {1.0f / 8192.0f};
+constexpr float MPU6050_ACCEL_SCALE_8G_FACTOR          {1.0f / 4096.0f};
+constexpr float MPU6050_ACCEL_SCALE_16G_FACTOR         {1.0f / 2048.0f};
+
 /* Sensor configuration */
-constexpr uint8_t MPU6050_ACCEL_SCALE_RANGE_2G         {0u << 3u};
-constexpr uint8_t MPU6050_ACCEL_SCALE_RANGE_4G         {1u << 3u};
-constexpr uint8_t MPU6050_ACCEL_SCALE_RANGE_8G         {2u << 3u};
-constexpr uint8_t MPU6050_ACCEL_SCALE_RANGE_16G        {3u << 3u};
+constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G  {0u << 3u};
+constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_4G  {1u << 3u};
+constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_8G  {2u << 3u};
+constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_16G {3u << 3u};
 
 class Mpu6050
 {
@@ -60,8 +65,8 @@ class Mpu6050
     bool setAccelScaleRange16G();
 
     /* Sensor data */
-    bool getTemperature(int16_t& temperature);
-    bool getAcceleration(int16_t& x, int16_t& y, int16_t& z);
+    bool getTemperature(float& temperature);
+    bool getAcceleration(float& x, float& y, float& z);
 
     /* General register write */
     bool writeRegister(const uint8_t mpu6050Register, const uint8_t value);
