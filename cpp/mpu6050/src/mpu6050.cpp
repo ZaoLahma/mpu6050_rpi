@@ -5,7 +5,8 @@
 #include <string>
 #include <iostream>
 #include <stdlib.h>
-#include <cmath> 
+#include <cmath>
+#include <iomanip>
 
 /* OS dependencies */
 #include <fcntl.h>
@@ -72,7 +73,12 @@ bool Mpu6050::resetRegisters()
     return writeRegister(MPU6050_REG_PWR_PGMT, MPU6050_REG_RESET_MASK);
 }
 
-bool Mpu6050::getFIFOSampleCount(uint16_t count)
+bool Mpu6050::enableFIFO()
+{
+    return setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK | MPU6050_REG_FIFO_RESET_MASK, true);
+}
+
+bool Mpu6050::getFIFOSampleCount(uint16_t& count)
 {
     return getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count);
 }
@@ -131,8 +137,6 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
     retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, zRead);
 
     float scalingFactor {0.0f};
-
-    /* TODO: Fix the switch below */
     switch (accelConfig)
     {
         case MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G:
@@ -165,6 +169,8 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
 
 bool Mpu6050::writeRegister(const uint8_t mpu6050Register, const uint8_t value)
 {
+    //std::cout<<__func__<<" value "<<std::setw(2)<<std::setfill('0')<<std::hex<<static_cast<uint32_t>(value)<<" to "<<static_cast<uint32_t>(mpu6050Register)<<std::endl;
+
     bool retVal {false};
 
     if (0 == i2c_smbus_write_byte_data(m_i2cFileDescriptor, mpu6050Register, value))

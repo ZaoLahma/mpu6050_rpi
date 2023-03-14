@@ -6,8 +6,8 @@
 
 #define UNUSED(arg) (void) arg;
 
-#define CHECK(statement)if (!(statement)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK - "<<#statement<<" FAILED "<<std::endl; return 1; }
-#define CHECK_EQ(this, that)if (!(this == that)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK_EQ - "<<#this<<" "<<"("<<this<<")"<<" != "<<#that<<" ("<<that<<")"<<std::endl; return 1; }
+#define CHECK(statement)if (!(statement)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK - "<<#statement<<" FAILED"<<std::endl; return 1; }
+#define CHECK_EQ(this, that)if (!(this == that)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK_EQ - "<<#this<<" "<<"("<<this<<")"<<" != "<<#that<<" ("<<that<<") FAILED"<<std::endl; return 1; }
 #define DELAY(time) std::this_thread::sleep_for(time)
 
 
@@ -70,12 +70,28 @@ int main(int argc, char **argv)
     CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
     std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
 
+    uint16_t fifoCount {0x0u};
+    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
+    CHECK_EQ(0x0u, fifoCount);
+    
+    std::cout<<"ENABLE FIFO"<<std::endl;
+    CHECK(true == mpu.enableFIFO());
+    DELAY(500ms);
+
+    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
+    CHECK_EQ(0x0u, fifoCount);
+
     CHECK(true == mpu.enableTemperatureSensorFIFO());
     DELAY(500ms);
 
-    uint16_t fifoCount {0x0u};
-    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
-    std::cout<<"Fifo count "<<fifoCount<<std::endl;
+    while (0u == fifoCount)
+    {
+        uint8_t regVal = 0u;
+        mpu.readRegister(0x3A, regVal);
+        CHECK(true == mpu.getFIFOSampleCount(fifoCount));
+        std::cout<<"Fifo count "<<fifoCount<<std::endl;
+        DELAY(500ms);
+    }
 
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
@@ -85,6 +101,6 @@ int main(int argc, char **argv)
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
 
-    std::cout<<"Test application done\n";
+    std::cout<<"Test application done result SUCCESS\n";
     return 0;
 }

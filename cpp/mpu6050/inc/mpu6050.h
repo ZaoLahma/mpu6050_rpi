@@ -9,6 +9,9 @@ namespace mpu6050
 constexpr uint8_t MPU6050_DEFAULT_I2C_ADDR             {0x68};
 
 /* Register bit masks */
+constexpr uint8_t MPU6050_REG_FIFO_ENABLE_MASK         {1u << 6u};
+constexpr uint8_t MPU6050_REG_FIFO_RESET_MASK          {1u << 2u};
+
 constexpr uint8_t MPU6050_REG_SLEEP_MASK               {1u << 6u};
 constexpr uint8_t MPU6050_REG_RESET_MASK               {1u << 7u};
 constexpr uint8_t MPU6050_REG_TEMP_DISABLE_MASK        {1u << 4u};
@@ -17,6 +20,8 @@ constexpr uint8_t MPU6050_REG_FIFO_TEMP_ENABLE_MASK    {1u << 7u};
 constexpr uint8_t MPU6050_REG_FIFO_ACCEL_ENABLE_MASK   {1u << 3u};
 
 /* Registers */
+constexpr uint8_t MPU6050_REG_USER_CONTROL             {0x6A};
+
 constexpr uint8_t MPU6050_REG_FIFO_ENABLE              {0x23u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_HIGH          {0x72u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_LOW           {0x73u};
@@ -67,7 +72,8 @@ class Mpu6050
     bool resetRegisters();
 
     /* FIFO state management */
-    bool getFIFOSampleCount(uint16_t count);
+    bool enableFIFO();
+    bool getFIFOSampleCount(uint16_t& count);
     bool enableTemperatureSensorFIFO();
 
     /* Sensor configuration */
