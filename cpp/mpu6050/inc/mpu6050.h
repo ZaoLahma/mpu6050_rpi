@@ -72,19 +72,6 @@ class Mpu6050
     bool disableTemperatureSensor();
     bool resetRegisters();
 
-    /* FIFO state management */
-    bool enableFIFO();
-    bool getFIFOSampleCount(uint16_t& count);
-    bool enableTemperatureSensorFIFO();
-    bool enableAccelSensorFIFO();
-
-    /*
-       FIFO data, in sensor register address order.
-       At most 32 bytes, so supports at most 16 enabled
-       FIFO sensors at one time
-    */
-    bool readFIFO(uint16_t values[], uint8_t numValues);
-
     /* Sensor configuration */
     bool setAccelScaleRange2G();
     bool setAccelScaleRange4G();
@@ -110,6 +97,9 @@ class Mpu6050
     bool setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitmask, const bool set);
 
     bool getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t mpu6050RegisterLow, uint16_t& value);
+
+    /* Read 2 bytes of data from two separate registers at addresses mpu6050Register and mpu6050Register + 1u, "probably" atomically */
+    bool getRegisterWordBurstRead(const uint8_t mpu6050Register, uint16_t& value);
 
     int getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength);
 

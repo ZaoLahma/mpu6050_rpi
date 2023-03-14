@@ -73,63 +73,6 @@ bool Mpu6050::resetRegisters()
     return writeRegister(MPU6050_REG_PWR_PGMT, MPU6050_REG_RESET_MASK);
 }
 
-bool Mpu6050::enableFIFO()
-{
-    return setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK | MPU6050_REG_FIFO_RESET_MASK, true);
-}
-
-bool Mpu6050::getFIFOSampleCount(uint16_t& count)
-{
-    return getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count);
-}
-
-bool Mpu6050::enableTemperatureSensorFIFO()
-{
-    return setRegisterValue(MPU6050_REG_FIFO_ENABLE, MPU6050_REG_FIFO_TEMP_ENABLE_MASK, true);
-}
-
-bool Mpu6050::enableAccelSensorFIFO()
-{
-    return setRegisterValue(MPU6050_REG_FIFO_ENABLE, MPU6050_REG_FIFO_ACCEL_ENABLE_MASK, true);
-}
-
-bool Mpu6050::readFIFO(uint16_t values[], uint8_t numValues)
-{
-    bool retVal {false};
-
-    const uint8_t BUF_LENGTH = 32u;
-    uint8_t buf[BUF_LENGTH] = {0u};
-    if (int32_t numBytesRead = getRegisterData(MPU6050_REG_FIRO_READ_WRITE, buf, BUF_LENGTH);
-        (0 < numBytesRead) && (numBytesRead % 2 == 0))
-    {
-        retVal = true;
-        uint8_t outputBufIndex = 0u;
-        for (uint32_t i = 0u; i < BUF_LENGTH; i += 2u)
-        {
-            const uint8_t high = buf[i];
-            const uint8_t low  = buf[i + 1u];
-
-            uint16_t val = (high << MPU6050_SENSOR_DATA_OFFSET_HIGH) | (low << MPU6050_SENSOR_DATA_OFFSET_LOW);
-
-            if (outputBufIndex < numValues)
-            {
-                values[outputBufIndex] = val;
-                outputBufIndex += 1u;
-            }
-            else
-            {
-                break;
-            }
-        }
-    }
-    else
-    {
-        std::cout<<"Num bytes read: "<<numBytesRead<<std::endl;
-    }
-
-    return retVal;
-}
-
 bool Mpu6050::setAccelScaleRange2G()
 {
     return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G);
@@ -155,7 +98,7 @@ bool Mpu6050::getTemperature(float& temperature)
     bool retVal {false};
 
     uint16_t registerValue {0x0u};
-    retVal = getRegisterWord(MPU6050_REG_TEMP_HIGH, MPU6050_REG_TEMP_LOW, registerValue);
+    retVal = getRegisterWordBurstRead(MPU6050_REG_TEMP_HIGH, registerValue);
 
     temperature = static_cast<int16_t>(registerValue) * MPU6050_TEMP_DATA_SCALING_FACTOR;
     temperature = temperature + MPU6050_TEMP_DATA_OFFSET;
@@ -174,9 +117,9 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
     uint16_t xRead;
     uint16_t yRead;
     uint16_t zRead;
-    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_X_HIGH, MPU6050_REG_ACCEL_X_LOW, xRead);
-    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_Y_HIGH, MPU6050_REG_ACCEL_Y_LOW, yRead);
-    retVal = retVal && getRegisterWord(MPU6050_REG_ACCEL_Z_HIGH, MPU6050_REG_ACCEL_Z_LOW, zRead);
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_ACCEL_X_HIGH, xRead);
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_ACCEL_Y_HIGH, yRead);
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_ACCEL_Z_HIGH, zRead);
 
     float scalingFactor {0.0f};
     switch (accelConfig)
@@ -274,6 +217,25 @@ bool Mpu6050::getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t m
 
     retVal = retVal && readRegister(mpu6050RegisterLow, readValue);
     value = value | (readValue << MPU6050_SENSOR_DATA_OFFSET_LOW);
+
+    return retVal;
+}
+
+bool Mpu6050::getRegisterWordBurstRead(const uint8_t mpu6050Register, uint16_t& value)
+{
+    bool retVal {false};
+
+    value = 0x0u;
+
+    uint8_t buf[2u];
+    const uint8_t bufLength = 2u;
+
+    if (int32_t readValue {getRegisterData(mpu6050Register, buf, bufLength)}; readValue > 0)
+    {
+        retVal = true;
+        value = buf[0] << MPU6050_SENSOR_DATA_OFFSET_HIGH;
+        value = value | (buf[1] << MPU6050_SENSOR_DATA_OFFSET_LOW);
+    }
 
     std::cout<<__func__<<" RETURN "<<value<<std::endl;
 

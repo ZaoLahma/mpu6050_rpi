@@ -61,10 +61,6 @@ int main(int argc, char **argv)
     CHECK(true == mpu.setAccelScaleRange4G());
     DELAY(500ms);
 
-    uint16_t fifoCount {0x0u};
-    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
-    CHECK_EQ(0x0u, fifoCount);
-
     std::cout<<"ENABLE TEMPERATURE"<<std::endl;
     CHECK(true == mpu.enableTemperatureSensor());
 
@@ -76,33 +72,6 @@ int main(int argc, char **argv)
     float temperature {0.0f};
     CHECK(true == mpu.getTemperature(temperature));
     std::cout<<"Temperature "<<temperature<<std::endl;
-   
-    std::cout<<"ENABLE FIFO"<<std::endl;
-    CHECK(true == mpu.enableFIFO());
-    DELAY(500ms);
-
-    CHECK(true == mpu.getFIFOSampleCount(fifoCount));
-    CHECK_EQ(0x0u, fifoCount);
-
-    CHECK(true == mpu.enableTemperatureSensorFIFO());
-    //CHECK(true == mpu.enableAccelSensorFIFO());
-    DELAY(500ms);
-
-    while (0u == fifoCount)
-    {
-        CHECK(true == mpu.getFIFOSampleCount(fifoCount));
-        std::cout<<"Fifo count "<<fifoCount<<std::endl;
-        DELAY(500ms);
-    }
-
-    const uint8_t NUM_VALUES = 16u;
-    uint16_t values[NUM_VALUES] = {0u};
-    CHECK(true == mpu.readFIFO(values, NUM_VALUES));
-   
-    for (const auto& val : values)
-    {
-        std::cout<<"val "<<val<<std::endl;
-    }
 
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
