@@ -25,6 +25,7 @@ constexpr uint8_t MPU6050_REG_USER_CONTROL             {0x6A};
 constexpr uint8_t MPU6050_REG_FIFO_ENABLE              {0x23u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_HIGH          {0x72u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_LOW           {0x73u};
+constexpr uint8_t MPU6050_REG_FIRO_READ_WRITE          {0x74u};
 
 constexpr uint8_t MPU6050_REG_PWR_PGMT                 {0x6Bu};
 
@@ -75,6 +76,14 @@ class Mpu6050
     bool enableFIFO();
     bool getFIFOSampleCount(uint16_t& count);
     bool enableTemperatureSensorFIFO();
+    bool enableAccelSensorFIFO();
+
+    /*
+       FIFO data, in sensor register address order.
+       At most 32 bytes, so supports at most 16 enabled
+       FIFO sensors at one time
+    */
+    bool readFIFO(uint16_t values[], uint8_t numValues);
 
     /* Sensor configuration */
     bool setAccelScaleRange2G();
@@ -101,6 +110,8 @@ class Mpu6050
     bool setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitmask, const bool set);
 
     bool getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t mpu6050RegisterLow, uint16_t& value);
+
+    int getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength);
 
     bool setAccelScaleRange(const uint8_t accelScaleConfig);
 };

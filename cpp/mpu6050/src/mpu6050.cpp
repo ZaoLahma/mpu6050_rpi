@@ -88,6 +88,48 @@ bool Mpu6050::enableTemperatureSensorFIFO()
     return setRegisterValue(MPU6050_REG_FIFO_ENABLE, MPU6050_REG_FIFO_TEMP_ENABLE_MASK, true);
 }
 
+bool Mpu6050::enableAccelSensorFIFO()
+{
+    return setRegisterValue(MPU6050_REG_FIFO_ENABLE, MPU6050_REG_FIFO_ACCEL_ENABLE_MASK, true);
+}
+
+bool Mpu6050::readFIFO(uint16_t values[], uint8_t numValues)
+{
+    bool retVal {false};
+
+    const uint8_t BUF_LENGTH = 32u;
+    uint8_t buf[BUF_LENGTH] = {0u};
+    if (int32_t numBytesRead = getRegisterData(MPU6050_REG_FIRO_READ_WRITE, buf, BUF_LENGTH);
+        (0 < numBytesRead) && (numBytesRead % 2 == 0))
+    {
+        retVal = true;
+        uint8_t outputBufIndex = 0u;
+        for (uint32_t i = 0u; i < BUF_LENGTH; i += 2u)
+        {
+            const uint8_t high = buf[i];
+            const uint8_t low  = buf[i + 1u];
+
+            uint16_t val = (high << MPU6050_SENSOR_DATA_OFFSET_HIGH) | (low << MPU6050_SENSOR_DATA_OFFSET_LOW);
+
+            if (outputBufIndex < numValues)
+            {
+                values[outputBufIndex] = val;
+                outputBufIndex += 1u;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        std::cout<<"Num bytes read: "<<numBytesRead<<std::endl;
+    }
+
+    return retVal;
+}
+
 bool Mpu6050::setAccelScaleRange2G()
 {
     return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G);
@@ -232,6 +274,35 @@ bool Mpu6050::getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t m
 
     retVal = retVal && readRegister(mpu6050RegisterLow, readValue);
     value = value | (readValue << MPU6050_SENSOR_DATA_OFFSET_LOW);
+
+    std::cout<<__func__<<" RETURN "<<value<<std::endl;
+
+    return retVal;
+}
+
+int32_t Mpu6050::getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength)
+{
+    int32_t retVal = -1;
+
+    struct i2c_smbus_ioctl_data ioctlData;
+    union i2c_smbus_data smbusData;
+
+    smbusData.block[0] = bufLength;
+
+    ioctlData.read_write = I2C_SMBUS_READ;
+    ioctlData.command = mpu6050Register;
+    ioctlData.size = I2C_SMBUS_I2C_BLOCK_DATA;
+    ioctlData.data = &smbusData;
+
+    if (int32_t errorCode = ioctl(m_i2cFileDescriptor, I2C_SMBUS, &ioctlData); 0 == errorCode)
+    {
+        for(uint32_t i = 0u; i < bufLength; ++i)
+        {
+            buf[i] = smbusData.block[i + 1u];
+        }
+
+        retVal = smbusData.block[0u];
+    }
 
     return retVal;
 }

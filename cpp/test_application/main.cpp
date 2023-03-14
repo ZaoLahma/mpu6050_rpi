@@ -37,18 +37,6 @@ int main(int argc, char **argv)
     CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
     CHECK_EQ(expectedRegValue, regValue);
 
-    std::cout<<"ENABLE TEMPERATURE"<<std::endl;
-    CHECK(true == mpu.enableTemperatureSensor());
-
-    DELAY(500ms);
-    expectedRegValue = 0x0u;
-    CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
-    CHECK_EQ(expectedRegValue, regValue);
-
-    float temperature {0.0f};
-    CHECK(true == mpu.getTemperature(temperature));
-    std::cout<<"Temperature "<<temperature<<std::endl;
-
     float accelX {0.0f};
     float accelY {0.0f};
     float accelZ {0.0f};
@@ -63,17 +51,32 @@ int main(int argc, char **argv)
     CHECK(true == mpu.setAccelScaleRange8G());
     DELAY(500ms);
     CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
-    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;    
+    std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;   
 
     CHECK(true == mpu.setAccelScaleRange16G());
     DELAY(500ms);
     CHECK(true == mpu.getAcceleration(accelX, accelY, accelZ));
     std::cout<<"X "<<accelX<<", Y "<<accelY<<", Z "<<accelZ<<std::endl;
 
+    CHECK(true == mpu.setAccelScaleRange4G());
+    DELAY(500ms);
+
     uint16_t fifoCount {0x0u};
     CHECK(true == mpu.getFIFOSampleCount(fifoCount));
     CHECK_EQ(0x0u, fifoCount);
-    
+
+    std::cout<<"ENABLE TEMPERATURE"<<std::endl;
+    CHECK(true == mpu.enableTemperatureSensor());
+
+    DELAY(500ms);
+    expectedRegValue = 0x0u;
+    CHECK(true == mpu.readRegister(mpu6050::MPU6050_REG_PWR_PGMT, regValue));
+    CHECK_EQ(expectedRegValue, regValue);
+
+    float temperature {0.0f};
+    CHECK(true == mpu.getTemperature(temperature));
+    std::cout<<"Temperature "<<temperature<<std::endl;
+   
     std::cout<<"ENABLE FIFO"<<std::endl;
     CHECK(true == mpu.enableFIFO());
     DELAY(500ms);
@@ -82,15 +85,23 @@ int main(int argc, char **argv)
     CHECK_EQ(0x0u, fifoCount);
 
     CHECK(true == mpu.enableTemperatureSensorFIFO());
+    //CHECK(true == mpu.enableAccelSensorFIFO());
     DELAY(500ms);
 
     while (0u == fifoCount)
     {
-        uint8_t regVal = 0u;
-        mpu.readRegister(0x3A, regVal);
         CHECK(true == mpu.getFIFOSampleCount(fifoCount));
         std::cout<<"Fifo count "<<fifoCount<<std::endl;
         DELAY(500ms);
+    }
+
+    const uint8_t NUM_VALUES = 16u;
+    uint16_t values[NUM_VALUES] = {0u};
+    CHECK(true == mpu.readFIFO(values, NUM_VALUES));
+   
+    for (const auto& val : values)
+    {
+        std::cout<<"val "<<val<<std::endl;
     }
 
     std::cout<<"SLEEP"<<std::endl;
