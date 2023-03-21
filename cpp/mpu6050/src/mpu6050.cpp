@@ -13,7 +13,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-/* External dependencies */
+/* External lib dependencies */
 extern "C"
 {
     #include <linux/i2c-dev.h>
@@ -25,19 +25,20 @@ namespace mpu6050
 {
 
 constexpr std::string_view I2C_DEVICE_FILE {"/dev/i2c-1"};
+constexpr uint8_t WORD_LENGTH {16u};
 
 Mpu6050::Mpu6050(uint8_t i2cAddr) : m_i2cAddr(i2cAddr)
 {
     m_i2cFileDescriptor = open(std::string(I2C_DEVICE_FILE).c_str(), O_RDWR);
     if (0 > m_i2cFileDescriptor)
     {
-        std::cout<<"Failed to open the I2C file descriptor at "<<I2C_DEVICE_FILE<<", return code "<<m_i2cFileDescriptor<<"\n";
+        std::cerr<<"Failed to open the I2C file descriptor at "<<I2C_DEVICE_FILE<<", return code "<<m_i2cFileDescriptor<<"\n";
         abort();
     }
 
     if (0 != ioctl(m_i2cFileDescriptor, I2C_SLAVE, m_i2cAddr))
     {
-        std::cout<<"Failed to get the I2C bus with address "<<m_i2cAddr<<"\n";
+        std::cerr<<"Failed to get the I2C bus with address "<<m_i2cAddr<<"\n";
         abort();
     }
 }
@@ -154,8 +155,6 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
 
 bool Mpu6050::writeRegister(const uint8_t mpu6050Register, const uint8_t value)
 {
-    //std::cout<<__func__<<" value "<<std::setw(2)<<std::setfill('0')<<std::hex<<static_cast<uint32_t>(value)<<" to "<<static_cast<uint32_t>(mpu6050Register)<<std::endl;
-
     bool retVal {false};
 
     if (0 == i2c_smbus_write_byte_data(m_i2cFileDescriptor, mpu6050Register, value))
@@ -227,17 +226,14 @@ bool Mpu6050::getRegisterWordBurstRead(const uint8_t mpu6050Register, uint16_t& 
 
     value = 0x0u;
 
-    uint8_t buf[2u];
-    const uint8_t bufLength = 2u;
+    uint8_t buf[WORD_LENGTH];
 
-    if (int32_t readValue {getRegisterData(mpu6050Register, buf, bufLength)}; readValue > 0)
+    if (int32_t readValue {getRegisterData(mpu6050Register, buf, WORD_LENGTH)}; readValue > 0)
     {
         retVal = true;
         value = buf[0] << MPU6050_SENSOR_DATA_OFFSET_HIGH;
         value = value | (buf[1] << MPU6050_SENSOR_DATA_OFFSET_LOW);
     }
-
-    std::cout<<__func__<<" RETURN "<<value<<std::endl;
 
     return retVal;
 }

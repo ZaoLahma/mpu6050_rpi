@@ -10,7 +10,6 @@
 #define CHECK_EQ(this, that)if (!(this == that)) { std::cout<<__FILE__<<", "<<__LINE__<<" "<<"CHECK_EQ - "<<#this<<" "<<"("<<this<<")"<<" != "<<#that<<" ("<<that<<") FAILED"<<std::endl; return 1; }
 #define DELAY(time) std::this_thread::sleep_for(time)
 
-
 using namespace std::chrono_literals;
 int main(int argc, char **argv)
 {
