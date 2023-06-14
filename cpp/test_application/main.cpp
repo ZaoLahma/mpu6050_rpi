@@ -72,6 +72,31 @@ int main(int argc, char **argv)
     CHECK(true == mpu.getTemperature(temperature));
     std::cout<<"Temperature "<<temperature<<std::endl;
 
+    std::cout<<"GYRO"<<std::endl;
+
+    CHECK(true == mpu.setGyroScaleRange250());
+    DELAY(500ms);
+    float gyroX {0};
+    float gyroY {0};
+    float gyroZ {0};
+    CHECK(true == mpu.getGyro(gyroX, gyroY, gyroZ));
+    std::cout<<"Gyro "<<gyroX<<", "<<gyroY<<", "<<gyroZ<<std::endl;
+
+    CHECK(true == mpu.setGyroScaleRange500());
+    DELAY(500ms);
+    CHECK(true == mpu.getGyro(gyroX, gyroY, gyroZ));
+    std::cout<<"Gyro "<<gyroX<<", "<<gyroY<<", "<<gyroZ<<std::endl;
+
+    CHECK(true == mpu.setGyroScaleRange1000());
+    DELAY(500ms);
+    CHECK(true == mpu.getGyro(gyroX, gyroY, gyroZ));
+    std::cout<<"Gyro "<<gyroX<<", "<<gyroY<<", "<<gyroZ<<std::endl;
+
+    CHECK(true == mpu.setGyroScaleRange2000());
+    DELAY(500ms);
+    CHECK(true == mpu.getGyro(gyroX, gyroY, gyroZ));
+    std::cout<<"Gyro "<<gyroX<<", "<<gyroY<<", "<<gyroZ<<std::endl;
+    
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());
 

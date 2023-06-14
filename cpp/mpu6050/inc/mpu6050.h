@@ -40,6 +40,14 @@ constexpr uint8_t MPU6050_REG_ACCEL_Y_LOW              {0x3Eu};
 constexpr uint8_t MPU6050_REG_ACCEL_Z_HIGH             {0x3Fu};
 constexpr uint8_t MPU6050_REG_ACCEL_Z_LOW              {0x40u};
 
+constexpr uint8_t MPU6050_REG_GYRO_CONFIG              {0x18u};
+constexpr uint8_t MPU6050_REG_GYRO_X_HIGH              {0x43u};
+constexpr uint8_t MPU6050_REG_GYRO_X_LOW               {0x44u};
+constexpr uint8_t MPU6050_REG_GYRO_Y_HIGH              {0x45u};
+constexpr uint8_t MPU6050_REG_GYRO_Y_LOW               {0x46u};
+constexpr uint8_t MPU6050_REG_GYRO_Z_HIGH              {0x47u};
+constexpr uint8_t MPU6050_REG_GYRO_Z_LOW               {0x48u};
+
 /* Sensor data bit offsets */
 constexpr uint8_t MPU6050_SENSOR_DATA_OFFSET_HIGH      {8u};
 constexpr uint8_t MPU6050_SENSOR_DATA_OFFSET_LOW       {0u};
@@ -53,11 +61,21 @@ constexpr float MPU6050_ACCEL_SCALE_4G_FACTOR          {1.0f / 8192.0f};
 constexpr float MPU6050_ACCEL_SCALE_8G_FACTOR          {1.0f / 4096.0f};
 constexpr float MPU6050_ACCEL_SCALE_16G_FACTOR         {1.0f / 2048.0f};
 
+constexpr float MPU6050_GYRO_SCALE_250_FACTOR          {1.0f / 131.0f};
+constexpr float MPU6050_GYRO_SCALE_500_FACTOR          {1.0f / 65.5f};
+constexpr float MPU6050_GYRO_SCALE_1000_FACTOR         {1.0f / 32.8f};
+constexpr float MPU6050_GYRO_SCALE_2000_FACTOR         {1.0f / 16.4f};
+
 /* Sensor configuration */
 constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_2G  {0u << 3u};
 constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_4G  {1u << 3u};
 constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_8G  {2u << 3u};
 constexpr uint8_t MPU6050_ACCEL_CONFIG_SCALE_RANGE_16G {3u << 3u};
+
+constexpr uint8_t MPU6050_GYRO_CONFIG_SCALE_RANGE_250  {0u << 3u};
+constexpr uint8_t MPU6050_GYRO_CONFIG_SCALE_RANGE_500  {1u << 3u};
+constexpr uint8_t MPU6050_GYRO_CONFIG_SCALE_RANGE_1000 {2u << 3u};
+constexpr uint8_t MPU6050_GYRO_CONFIG_SCALE_RANGE_2000 {3u << 3u};
 
 class Mpu6050
 {
@@ -78,9 +96,15 @@ class Mpu6050
     bool setAccelScaleRange8G();
     bool setAccelScaleRange16G();
 
+    bool setGyroScaleRange250();
+    bool setGyroScaleRange500();
+    bool setGyroScaleRange1000();
+    bool setGyroScaleRange2000();
+
     /* Sensor data */
     bool getTemperature(float& temperature);
     bool getAcceleration(float& x, float& y, float& z);
+    bool getGyro(float& x, float& y, float& z);
 
     /* General register write */
     bool writeRegister(const uint8_t mpu6050Register, const uint8_t value);
@@ -104,6 +128,7 @@ class Mpu6050
     int getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength);
 
     bool setAccelScaleRange(const uint8_t accelScaleConfig);
+    bool setGyroScaleRange(const uint8_t gyroScaleConfig);
 };
 
 } /* namespace mpu6050 */

@@ -94,6 +94,26 @@ bool Mpu6050::setAccelScaleRange16G()
     return setAccelScaleRange(MPU6050_ACCEL_CONFIG_SCALE_RANGE_16G);
 }
 
+bool Mpu6050::setGyroScaleRange250()
+{
+    return setGyroScaleRange(MPU6050_GYRO_CONFIG_SCALE_RANGE_250);
+}
+
+bool Mpu6050::setGyroScaleRange500()
+{
+    return setGyroScaleRange(MPU6050_GYRO_CONFIG_SCALE_RANGE_500);
+}
+
+bool Mpu6050::setGyroScaleRange1000()
+{
+    return setGyroScaleRange(MPU6050_GYRO_CONFIG_SCALE_RANGE_1000);
+}
+
+bool Mpu6050::setGyroScaleRange2000()
+{
+    return setGyroScaleRange(MPU6050_GYRO_CONFIG_SCALE_RANGE_2000);
+}
+
 bool Mpu6050::getTemperature(float& temperature)
 {
     bool retVal {false};
@@ -141,6 +161,59 @@ bool Mpu6050::getAcceleration(float& x, float& y, float& z)
         retVal = false;
         break;
     }
+
+    float scaledValue = 0.0f;
+    scaledValue = static_cast<int16_t>(xRead) * scalingFactor;
+    x = scaledValue;
+    scaledValue = static_cast<int16_t>(yRead) * scalingFactor;
+    y = scaledValue;
+    scaledValue = static_cast<int16_t>(zRead) * scalingFactor;
+    z = scaledValue;
+
+    return retVal;
+}
+
+bool Mpu6050::getGyro(float& x, float& y, float& z)
+{
+    bool retVal {false};
+
+    uint8_t gyroConfig {0x0u};
+
+    retVal = readRegister(MPU6050_REG_GYRO_CONFIG, gyroConfig);
+
+    uint16_t xRead;
+    uint16_t yRead;
+    uint16_t zRead;
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_GYRO_X_HIGH, xRead);
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_GYRO_Y_HIGH, yRead);
+    retVal = retVal && getRegisterWordBurstRead(MPU6050_REG_GYRO_Z_HIGH, zRead);
+
+    float scalingFactor {0.0f};
+
+    switch (gyroConfig)
+    {
+        case MPU6050_GYRO_CONFIG_SCALE_RANGE_250:
+        scalingFactor = MPU6050_GYRO_SCALE_250_FACTOR;
+        std::cout<<"250"<<std::endl;
+        break;
+        case MPU6050_GYRO_CONFIG_SCALE_RANGE_500:
+        scalingFactor = MPU6050_GYRO_SCALE_500_FACTOR;
+        std::cout<<"500"<<std::endl;
+        break;
+        case MPU6050_GYRO_CONFIG_SCALE_RANGE_1000:
+        scalingFactor = MPU6050_GYRO_SCALE_1000_FACTOR;
+        std::cout<<"1000"<<std::endl;
+        break;
+        case MPU6050_GYRO_CONFIG_SCALE_RANGE_2000:
+        scalingFactor = MPU6050_GYRO_SCALE_2000_FACTOR;
+        std::cout<<"2000"<<std::endl;
+        break;
+        default:
+        retVal = false;
+        break;
+    }
+
+    std::cout<<"xRead: "<<xRead<<std::endl;
 
     float scaledValue = 0.0f;
     scaledValue = static_cast<int16_t>(xRead) * scalingFactor;
@@ -269,5 +342,11 @@ bool Mpu6050::setAccelScaleRange(const uint8_t accelScaleConfig)
 {
     return writeRegister(MPU6050_REG_ACCEL_CONFIG, accelScaleConfig);
 }
+
+bool Mpu6050::setGyroScaleRange(const uint8_t gyroScaleConfig)
+{
+    return writeRegister(MPU6050_REG_GYRO_CONFIG, gyroScaleConfig);
+}
+
 
 } /* Namespace mpu6050 */
