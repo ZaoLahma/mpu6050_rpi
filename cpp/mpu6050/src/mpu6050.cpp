@@ -214,6 +214,8 @@ bool Mpu6050::getGyro(float& x, float& y, float& z)
     }
 
     std::cout<<"xRead: "<<xRead<<std::endl;
+    std::cout<<"yRead: "<<yRead<<std::endl;
+    std::cout<<"zRead: "<<zRead<<std::endl;
 
     float scaledValue = 0.0f;
     scaledValue = static_cast<int16_t>(xRead) * scalingFactor;

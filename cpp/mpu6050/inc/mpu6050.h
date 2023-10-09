@@ -40,7 +40,7 @@ constexpr uint8_t MPU6050_REG_ACCEL_Y_LOW              {0x3Eu};
 constexpr uint8_t MPU6050_REG_ACCEL_Z_HIGH             {0x3Fu};
 constexpr uint8_t MPU6050_REG_ACCEL_Z_LOW              {0x40u};
 
-constexpr uint8_t MPU6050_REG_GYRO_CONFIG              {0x18u};
+constexpr uint8_t MPU6050_REG_GYRO_CONFIG              {0x1Bu};
 constexpr uint8_t MPU6050_REG_GYRO_X_HIGH              {0x43u};
 constexpr uint8_t MPU6050_REG_GYRO_X_LOW               {0x44u};
 constexpr uint8_t MPU6050_REG_GYRO_Y_HIGH              {0x45u};
