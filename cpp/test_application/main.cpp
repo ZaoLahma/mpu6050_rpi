@@ -96,6 +96,21 @@ int main(int argc, char **argv)
     DELAY(500ms);
     CHECK(true == mpu.getGyro(gyroX, gyroY, gyroZ));
     std::cout<<"Gyro "<<gyroX<<", "<<gyroY<<", "<<gyroZ<<std::endl;
+
+    DELAY(500ms);
+    uint16_t fifoCount {0u};
+    CHECK(true == mpu.enableFIFO());
+    for (uint32_t i {0u}; i < 10u; ++i)
+    {
+        CHECK(true == mpu.getFIFOCount(fifoCount));
+        std::cout<<"FIFO count: "<<fifoCount<<std::endl;
+        DELAY(10ms);
+    }
+
+    /* TODO: Drain / verify the FIFO buffer */
+
+    CHECK(true == mpu.disableFIFO());
+    DELAY(500ms);
     
     std::cout<<"SLEEP"<<std::endl;
     CHECK(true == mpu.sleep());

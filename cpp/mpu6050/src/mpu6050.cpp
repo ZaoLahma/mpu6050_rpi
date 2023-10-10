@@ -114,6 +114,35 @@ bool Mpu6050::setGyroScaleRange2000()
     return setGyroScaleRange(MPU6050_GYRO_CONFIG_SCALE_RANGE_2000);
 }
 
+bool Mpu6050::enableFIFO()
+{
+    bool retVal {false};
+
+    retVal = disableFIFO();
+
+    const uint8_t enableAllSensorsMask {MPU6050_REG_FIFO_TEMP_ENABLE_MASK};
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_FIFO_ENABLE, enableAllSensorsMask, true);
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, true);
+
+    return retVal;
+}
+
+bool Mpu6050::disableFIFO()
+{
+    bool retVal {setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, false)};
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true);
+
+    return retVal;
+}
+
+bool Mpu6050::getFIFOCount(uint16_t& count)
+{
+    return getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count);
+}
+
 bool Mpu6050::getTemperature(float& temperature)
 {
     bool retVal {false};

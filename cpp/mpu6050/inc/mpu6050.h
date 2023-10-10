@@ -101,6 +101,11 @@ class Mpu6050
     bool setGyroScaleRange1000();
     bool setGyroScaleRange2000();
 
+    /* Control the FIFO buffer for all (MPU6050 internal) sensors. Not really working yet. */
+    bool enableFIFO();
+    bool disableFIFO();
+    bool getFIFOCount(uint16_t& count);
+
     /* Sensor data */
     bool getTemperature(float& temperature);
     bool getAcceleration(float& x, float& y, float& z);
