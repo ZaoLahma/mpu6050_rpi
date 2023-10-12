@@ -99,11 +99,12 @@ int main(int argc, char **argv)
 
     DELAY(500ms);
     uint16_t fifoCount {0u};
+    UNUSED(fifoCount);
     CHECK(true == mpu.enableFIFO());
     for (uint32_t i {0u}; i < 10u; ++i)
     {
-        CHECK(true == mpu.getFIFOCount(fifoCount));
-        std::cout<<"FIFO count: "<<fifoCount<<std::endl;
+        //CHECK(true == mpu.getFIFOCount(fifoCount));
+        //std::cout<<"FIFO count: "<<fifoCount<<std::endl;
         DELAY(10ms);
     }
 

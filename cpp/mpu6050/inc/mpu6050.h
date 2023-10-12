@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace mpu6050
 {
@@ -9,6 +12,11 @@ namespace mpu6050
 constexpr uint8_t MPU6050_DEFAULT_I2C_ADDR             {0x68};
 
 /* Register bit masks */
+constexpr uint8_t MPU6050_REG_DATA_RDY_EN_MASK         {1u << 0u};
+
+constexpr uint8_t MPU6050_FIFO_OFLOW_INT_MASK          {1u << 4u};
+constexpr uint8_t MPU6050_REG_DATA_RDY_INT_MASK        {1u << 0u};
+
 constexpr uint8_t MPU6050_REG_FIFO_ENABLE_MASK         {1u << 6u};
 constexpr uint8_t MPU6050_REG_FIFO_RESET_MASK          {1u << 2u};
 
@@ -20,12 +28,15 @@ constexpr uint8_t MPU6050_REG_FIFO_TEMP_ENABLE_MASK    {1u << 7u};
 constexpr uint8_t MPU6050_REG_FIFO_ACCEL_ENABLE_MASK   {1u << 3u};
 
 /* Registers */
-constexpr uint8_t MPU6050_REG_USER_CONTROL             {0x6A};
+constexpr uint8_t MPU6050_REG_USER_CONTROL             {0x6Au};
+
+constexpr uint8_t MPU6050_REG_INT_ENABLE               {0x38u};
+constexpr uint8_t MPU6050_REG_INT_STATUS               {0x3Au};
 
 constexpr uint8_t MPU6050_REG_FIFO_ENABLE              {0x23u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_HIGH          {0x72u};
 constexpr uint8_t MPU6050_REG_FIFO_COUNT_LOW           {0x73u};
-constexpr uint8_t MPU6050_REG_FIRO_READ_WRITE          {0x74u};
+constexpr uint8_t MPU6050_REG_FIFO_READ_WRITE          {0x74u};
 
 constexpr uint8_t MPU6050_REG_PWR_PGMT                 {0x6Bu};
 
@@ -101,7 +112,13 @@ class Mpu6050
     bool setGyroScaleRange1000();
     bool setGyroScaleRange2000();
 
-    /* Control the FIFO buffer for all (MPU6050 internal) sensors. Not really working yet. */
+    /* 
+        Control the FIFO buffer for all (MPU6050 internal) sensors. Not really working yet.
+
+        The intention is to spawn a thread that continuously reads the FIFO buffer on the MPU 6050
+        and copies it into this device's memory. Then reads of sensor data through the API is directed
+        into the buffer instead of to the MPU 6050.
+    */
     bool enableFIFO();
     bool disableFIFO();
     bool getFIFOCount(uint16_t& count);
@@ -118,11 +135,6 @@ class Mpu6050
     bool readRegister(const uint8_t mpu6050Register, uint8_t& value);
 
     protected:
-
-    private:
-    uint8_t m_i2cAddr;
-    int m_i2cFileDescriptor;
-
     bool setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitmask, const bool set);
 
     bool getRegisterWord(const uint8_t mpu6050RegisterHigh, const uint8_t mpu6050RegisterLow, uint16_t& value);
@@ -132,6 +144,21 @@ class Mpu6050
 
     int getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength);
 
+    private:
+    uint8_t m_i2cAddr;
+    int m_i2cFileDescriptor;
+
+    /* FIFO stuff */
+    static const uint8_t FIFO_BUF_SIZE {2u};
+    uint8_t FIFO_BUF[FIFO_BUF_SIZE];
+    bool m_fifoEnabled {false};
+    std::thread m_fifoThread;
+    std::mutex m_fifoThreadMutex;
+    std::condition_variable m_fifoControlNotification;
+
+    void fifoReader();
+
+    /* Config stuff */
     bool setAccelScaleRange(const uint8_t accelScaleConfig);
     bool setGyroScaleRange(const uint8_t gyroScaleConfig);
 };

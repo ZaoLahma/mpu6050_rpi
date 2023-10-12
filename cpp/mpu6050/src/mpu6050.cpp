@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <cmath>
 #include <iomanip>
+#include <algorithm>
 
 /* OS dependencies */
 #include <fcntl.h>
@@ -118,19 +119,29 @@ bool Mpu6050::enableFIFO()
 {
     bool retVal {false};
 
-    retVal = disableFIFO();
+    std::unique_lock<std::mutex> fifoLock(m_fifoThreadMutex);
 
-    const uint8_t enableAllSensorsMask {MPU6050_REG_FIFO_TEMP_ENABLE_MASK};
+    if (!m_fifoEnabled)
+    {
+        m_fifoThread = std::thread(&Mpu6050::fifoReader, this);
+    }
 
-    retVal = retVal && setRegisterValue(MPU6050_REG_FIFO_ENABLE, enableAllSensorsMask, true);
-
-    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, true);
-
-    return retVal;
+    /* Don't return until the FIFO read thread is started */
+    m_fifoControlNotification.wait(fifoLock);
+    
+    return m_fifoEnabled;
 }
 
 bool Mpu6050::disableFIFO()
 {
+    /* Verify that the FIFO-reading thread stopped... */
+    if (m_fifoEnabled)
+    {
+        m_fifoEnabled = false;
+        m_fifoThread.join();
+    }
+
+    /* ... and then disable FIFO and reset FIFO related registers */
     bool retVal {setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, false)};
 
     retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true);
@@ -140,7 +151,78 @@ bool Mpu6050::disableFIFO()
 
 bool Mpu6050::getFIFOCount(uint16_t& count)
 {
-    return getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count);
+    bool retVal {getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, count)};
+
+    return retVal;
+}
+
+void Mpu6050::fifoReader()
+{
+    /* Enable the data ready interrupt */
+    bool retVal {setRegisterValue(MPU6050_REG_INT_ENABLE, MPU6050_REG_DATA_RDY_EN_MASK | MPU6050_FIFO_OFLOW_INT_MASK, true)};
+
+    const uint8_t enableAllSensorsMask {MPU6050_REG_FIFO_TEMP_ENABLE_MASK};
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_FIFO_ENABLE, enableAllSensorsMask, true);
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, true);
+
+    m_fifoEnabled = retVal;
+
+    m_fifoControlNotification.notify_one();
+
+    while (m_fifoEnabled)
+    {
+        /* 
+            Empty the FIFO buffer as quickly as we can in interrupts. 
+            For now handle overflows by simply resetting the FIFO functionality.
+        */
+        if (uint8_t interrupt {0u}; 
+            readRegister(MPU6050_REG_INT_STATUS, interrupt) && 
+            (MPU6050_FIFO_OFLOW_INT_MASK == (interrupt & MPU6050_FIFO_OFLOW_INT_MASK)))
+        {
+            if (!setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true))
+            {
+                std::cerr<<"Failed to handle FIFO overflow"<<std::endl;
+                m_fifoEnabled = false;
+            }
+        }
+        else if (MPU6050_REG_DATA_RDY_INT_MASK == (MPU6050_REG_DATA_RDY_INT_MASK & interrupt))
+        {
+            uint16_t fifoCnt {0u};
+            while (fifoCnt < FIFO_BUF_SIZE)
+            {
+                if (!getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, fifoCnt))
+                {
+                    std::cerr<<"Failed to read FIFO count"<<std::endl;
+                    m_fifoEnabled = false;
+                }
+            }
+
+            bool failed {false};
+            uint8_t READ_BUF[FIFO_BUF_SIZE];
+            for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+            {
+                if (!readRegister(MPU6050_REG_FIFO_READ_WRITE, READ_BUF[i]))
+                {
+                    std::cerr<<"Failed to read FIFO buffer"<<std::endl;
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (!failed)
+            {
+                /* TODO: Mutex / lock protect me when FIFO_BUF is used for reading */
+                std::copy_n(READ_BUF, FIFO_BUF_SIZE, FIFO_BUF);
+            }
+
+            for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+            {
+                std::cout<<"Fifo buf ["<<(uint16_t) i<<"] == "<<(uint16_t) FIFO_BUF[i]<<std::endl;
+            }
+        }
+    }
 }
 
 bool Mpu6050::getTemperature(float& temperature)

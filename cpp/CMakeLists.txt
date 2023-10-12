@@ -1,3 +1,5 @@
+find_package(Threads)
+
 add_executable(test_mpu6050
     test_application/main.cpp
 )
@@ -9,4 +11,5 @@ add_subdirectory(mpu6050)
 target_link_libraries(test_mpu6050
     PRIVATE 
         mpu6050
+        Threads::Threads
 )
