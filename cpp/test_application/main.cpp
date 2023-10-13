@@ -101,12 +101,7 @@ int main(int argc, char **argv)
     uint16_t fifoCount {0u};
     UNUSED(fifoCount);
     CHECK(true == mpu.enableFIFO());
-    for (uint32_t i {0u}; i < 10u; ++i)
-    {
-        //CHECK(true == mpu.getFIFOCount(fifoCount));
-        //std::cout<<"FIFO count: "<<fifoCount<<std::endl;
-        DELAY(10ms);
-    }
+    DELAY(100ms);
 
     /* TODO: Drain / verify the FIFO buffer */
 

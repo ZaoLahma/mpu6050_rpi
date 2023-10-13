@@ -28,6 +28,13 @@ namespace mpu6050
 constexpr std::string_view I2C_DEVICE_FILE {"/dev/i2c-1"};
 constexpr uint8_t WORD_LENGTH {16u};
 
+/*
+    The cutoff point from which we no longer dare to read data from
+    the FIFO buffer in case it wraps over before we can act on the
+    overflow interrupt.
+*/
+constexpr uint16_t FIFO_MAX_CNT {768u};
+
 Mpu6050::Mpu6050(uint8_t i2cAddr) : m_i2cAddr(i2cAddr)
 {
     m_i2cFileDescriptor = open(std::string(I2C_DEVICE_FILE).c_str(), O_RDWR);
@@ -128,7 +135,7 @@ bool Mpu6050::enableFIFO()
 
     /* Don't return until the FIFO read thread is started */
     m_fifoControlNotification.wait(fifoLock);
-    
+
     return m_fifoEnabled;
 }
 
@@ -171,55 +178,72 @@ void Mpu6050::fifoReader()
 
     m_fifoControlNotification.notify_one();
 
+    bool resetFifo {false};
     while (m_fifoEnabled)
     {
-        /* 
-            Empty the FIFO buffer as quickly as we can in interrupts. 
+        /*
+            Empty the FIFO buffer as quickly as we can when the data ready interrupt register is set
             For now handle overflows by simply resetting the FIFO functionality.
         */
-        if (uint8_t interrupt {0u}; 
-            readRegister(MPU6050_REG_INT_STATUS, interrupt) && 
-            (MPU6050_FIFO_OFLOW_INT_MASK == (interrupt & MPU6050_FIFO_OFLOW_INT_MASK)))
+        if (uint8_t interrupt {0u};
+            resetFifo ||
+            (readRegister(MPU6050_REG_INT_STATUS, interrupt) &&
+            (MPU6050_FIFO_OFLOW_INT_MASK == (interrupt & MPU6050_FIFO_OFLOW_INT_MASK))))
         {
             if (!setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true))
             {
                 std::cerr<<"Failed to handle FIFO overflow"<<std::endl;
                 m_fifoEnabled = false;
             }
+
+            resetFifo = false;
         }
         else if (MPU6050_REG_DATA_RDY_INT_MASK == (MPU6050_REG_DATA_RDY_INT_MASK & interrupt))
         {
+            bool failed {false};
+
             uint16_t fifoCnt {0u};
             while (fifoCnt < FIFO_BUF_SIZE)
             {
                 if (!getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, fifoCnt))
                 {
-                    std::cerr<<"Failed to read FIFO count"<<std::endl;
-                    m_fifoEnabled = false;
-                }
-            }
-
-            bool failed {false};
-            uint8_t READ_BUF[FIFO_BUF_SIZE];
-            for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
-            {
-                if (!readRegister(MPU6050_REG_FIFO_READ_WRITE, READ_BUF[i]))
-                {
-                    std::cerr<<"Failed to read FIFO buffer"<<std::endl;
                     failed = true;
                     break;
                 }
             }
 
-            if (!failed)
+            if (fifoCnt > FIFO_MAX_CNT)
             {
-                /* TODO: Mutex / lock protect me when FIFO_BUF is used for reading */
-                std::copy_n(READ_BUF, FIFO_BUF_SIZE, FIFO_BUF);
+                /*
+                    We're too close to an overflow to want to continue reading.
+                    Skip reading and handle as overflow in the next cycle.
+                */
+                resetFifo = true;
             }
-
-            for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+            else if (!failed)
             {
-                std::cout<<"Fifo buf ["<<(uint16_t) i<<"] == "<<(uint16_t) FIFO_BUF[i]<<std::endl;
+                uint8_t READ_BUF[FIFO_BUF_SIZE];
+                for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+                {
+                    if (!readRegister(MPU6050_REG_FIFO_READ_WRITE, READ_BUF[i]))
+                    {
+                        std::cerr<<"Failed to read FIFO buffer"<<std::endl;
+                        failed = true;
+                        resetFifo = true;
+                        break;
+                    }
+                }
+
+                if (!failed)
+                {
+                    /* TODO: Mutex / lock protect me when the FIFO_BUF is used for reading */
+                    std::copy_n(READ_BUF, FIFO_BUF_SIZE, FIFO_BUF);
+                }
+
+                for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+                {
+                    std::cout<<"Fifo buf ["<<(uint16_t) i<<"] == "<<(uint16_t) FIFO_BUF[i]<<std::endl;
+                }
             }
         }
     }
@@ -230,6 +254,12 @@ bool Mpu6050::getTemperature(float& temperature)
     bool retVal {false};
 
     uint16_t registerValue {0x0u};
+
+    if (m_fifoEnabled)
+    {
+        /* Grab lock and read from FIFO_BUF instead */
+    }
+
     retVal = getRegisterWordBurstRead(MPU6050_REG_TEMP_HIGH, registerValue);
 
     temperature = static_cast<int16_t>(registerValue) * MPU6050_TEMP_DATA_SCALING_FACTOR;
@@ -419,6 +449,8 @@ bool Mpu6050::getRegisterWordBurstRead(const uint8_t mpu6050Register, uint16_t& 
         retVal = true;
         value = buf[0] << MPU6050_SENSOR_DATA_OFFSET_HIGH;
         value = value | (buf[1] << MPU6050_SENSOR_DATA_OFFSET_LOW);
+
+        std::cout<<"buf[0] == "<<(uint16_t) buf[0]<<", buf[1] == "<<(uint16_t) buf[1]<<std::endl;
     }
 
     return retVal;
