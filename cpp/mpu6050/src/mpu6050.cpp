@@ -148,12 +148,8 @@ bool Mpu6050::disableFIFO()
         m_fifoThread.join();
     }
 
-    /* ... and then disable FIFO and reset FIFO related registers */
-    bool retVal {setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, false)};
-
-    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true);
-
-    return retVal;
+    /* ... and then return the result of the FIFO shutdown (set in FIFO reading thread upon exit) */
+    return m_fifoEnabled == false;
 }
 
 bool Mpu6050::getFIFOCount(uint16_t& count)
@@ -205,7 +201,7 @@ void Mpu6050::fifoReader()
             uint16_t fifoCnt {0u};
             while (fifoCnt < FIFO_BUF_SIZE)
             {
-                if (!getRegisterWord(MPU6050_REG_FIFO_COUNT_HIGH, MPU6050_REG_FIFO_COUNT_LOW, fifoCnt))
+                if (!getRegisterWordBurstRead(MPU6050_REG_FIFO_COUNT_HIGH, fifoCnt))
                 {
                     failed = true;
                     break;
@@ -223,30 +219,36 @@ void Mpu6050::fifoReader()
             else if (!failed)
             {
                 uint8_t READ_BUF[FIFO_BUF_SIZE];
-                for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
+                if (0 >= getRegisterData(MPU6050_REG_FIFO_READ_WRITE, READ_BUF, FIFO_BUF_SIZE))
                 {
-                    if (!readRegister(MPU6050_REG_FIFO_READ_WRITE, READ_BUF[i]))
-                    {
-                        std::cerr<<"Failed to read FIFO buffer"<<std::endl;
-                        failed = true;
-                        resetFifo = true;
-                        break;
-                    }
+                    failed = true;
                 }
 
                 if (!failed)
                 {
-                    /* TODO: Mutex / lock protect me when the FIFO_BUF is used for reading */
+                    std::lock_guard<std::mutex> fifoBufLock(m_fifoThreadMutex);
                     std::copy_n(READ_BUF, FIFO_BUF_SIZE, FIFO_BUF);
-                }
-
-                for (uint8_t i {0u}; i < FIFO_BUF_SIZE; ++i)
-                {
-                    std::cout<<"Fifo buf ["<<(uint16_t) i<<"] == "<<(uint16_t) FIFO_BUF[i]<<std::endl;
                 }
             }
         }
     }
+
+    retVal = setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_ENABLE_MASK, false);
+
+    if (!retVal)
+    {
+        std::cerr<<"Failed to disable FIFO"<<std::endl;
+    }
+
+    retVal = retVal && setRegisterValue(MPU6050_REG_USER_CONTROL, MPU6050_REG_FIFO_RESET_MASK, true);
+
+    if (!retVal)
+    {
+        std::cerr<<"Failed to reset FIFO buffer"<<std::endl;
+    }
+
+    /* If any disable operation failed, keep m_fifoEnabled flag set */
+    m_fifoEnabled = !retVal;
 }
 
 bool Mpu6050::getTemperature(float& temperature)
@@ -258,9 +260,14 @@ bool Mpu6050::getTemperature(float& temperature)
     if (m_fifoEnabled)
     {
         /* Grab lock and read from FIFO_BUF instead */
+        std::lock_guard<std::mutex> fifoBufLock(m_fifoThreadMutex);
+        registerValue = toUint16(FIFO_BUF, 0);
+        retVal = true;
     }
-
-    retVal = getRegisterWordBurstRead(MPU6050_REG_TEMP_HIGH, registerValue);
+    else
+    {
+        retVal = getRegisterWordBurstRead(MPU6050_REG_TEMP_HIGH, registerValue);
+    }
 
     temperature = static_cast<int16_t>(registerValue) * MPU6050_TEMP_DATA_SCALING_FACTOR;
     temperature = temperature + MPU6050_TEMP_DATA_OFFSET;
@@ -385,10 +392,21 @@ bool Mpu6050::readRegister(const uint8_t mpu6050Register, uint8_t& value)
 {
     bool retVal {false};
 
-    if (int regValue = i2c_smbus_read_byte_data(m_i2cFileDescriptor, mpu6050Register); 0 <= regValue)
+    uint16_t numReadAttempts {0u};
+
+    while ((numReadAttempts < 10u) && !retVal)
     {
-        value = regValue;
-        retVal = true;
+        numReadAttempts++;
+        if (int regValue = i2c_smbus_read_byte_data(m_i2cFileDescriptor, mpu6050Register); 0 <= regValue)
+        {
+            value = regValue;
+            retVal = true;
+        }   
+    }
+
+    if (1u != numReadAttempts)
+    {
+        std::cout<<"Successful read after "<<numReadAttempts<<std::endl;
     }
 
     return retVal;
@@ -399,6 +417,7 @@ bool Mpu6050::setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitm
     bool retVal {false};
 
     uint8_t regValue {0x0u};
+
     if (readRegister(mpu6050Register, regValue))
     {
         if (set)
@@ -410,10 +429,7 @@ bool Mpu6050::setRegisterValue(const uint8_t mpu6050Register, const uint8_t bitm
             regValue &= ~bitmask;
         }
 
-        if (writeRegister(mpu6050Register, regValue))
-        {
-            retVal = true;
-        }
+        retVal = writeRegister(mpu6050Register, regValue);
     }
 
     return retVal;
@@ -447,10 +463,7 @@ bool Mpu6050::getRegisterWordBurstRead(const uint8_t mpu6050Register, uint16_t& 
     if (int32_t readValue {getRegisterData(mpu6050Register, buf, WORD_LENGTH)}; readValue > 0)
     {
         retVal = true;
-        value = buf[0] << MPU6050_SENSOR_DATA_OFFSET_HIGH;
-        value = value | (buf[1] << MPU6050_SENSOR_DATA_OFFSET_LOW);
-
-        std::cout<<"buf[0] == "<<(uint16_t) buf[0]<<", buf[1] == "<<(uint16_t) buf[1]<<std::endl;
+        value = toUint16(buf, 0);
     }
 
     return retVal;
@@ -493,5 +506,14 @@ bool Mpu6050::setGyroScaleRange(const uint8_t gyroScaleConfig)
     return writeRegister(MPU6050_REG_GYRO_CONFIG, gyroScaleConfig);
 }
 
+uint16_t Mpu6050::toUint16(const uint8_t buf[], const uint8_t startPos)
+{
+    uint16_t value {0u};
+
+    value = buf[startPos] << MPU6050_SENSOR_DATA_OFFSET_HIGH;
+    value = value | (buf[startPos + 1u] << MPU6050_SENSOR_DATA_OFFSET_LOW);
+    
+    return value;
+}
 
 } /* Namespace mpu6050 */

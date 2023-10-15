@@ -101,10 +101,15 @@ int main(int argc, char **argv)
     uint16_t fifoCount {0u};
     UNUSED(fifoCount);
     CHECK(true == mpu.enableFIFO());
-    DELAY(100ms);
+    
+    for (uint8_t i {0u}; i < 100u; ++i)
+    {
+        CHECK(true == mpu.getTemperature(temperature));
+        std::cout<<"Temperature from FIFO: "<<temperature<<std::endl;
+        DELAY(10ms);
+    }
 
-    /* TODO: Drain / verify the FIFO buffer */
-
+    DELAY(500ms);
     CHECK(true == mpu.disableFIFO());
     DELAY(500ms);
     

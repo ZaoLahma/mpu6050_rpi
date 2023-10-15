@@ -144,6 +144,8 @@ class Mpu6050
 
     int getRegisterData(const uint8_t mpu6050Register, uint8_t buf[], uint8_t bufLength);
 
+    uint16_t toUint16(const uint8_t buf[], const uint8_t startPos);
+
     private:
     uint8_t m_i2cAddr;
     int m_i2cFileDescriptor;
