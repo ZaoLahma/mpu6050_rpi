@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     UNUSED(fifoCount);
     CHECK(true == mpu.enableFIFO());
     
-    for (uint8_t i {0u}; i < 100u; ++i)
+    for (uint16_t i {0u}; i < 100u; ++i)
     {
         CHECK(true == mpu.getTemperature(temperature));
         std::cout<<"Temperature from FIFO: "<<temperature<<std::endl;
@@ -111,6 +111,20 @@ int main(int argc, char **argv)
 
     DELAY(500ms);
     CHECK(true == mpu.disableFIFO());
+    DELAY(500ms);
+
+    CHECK(true == mpu.enableSensorDataThread());
+
+    for (uint16_t i {0u}; i < 100u; ++i)
+    {
+        CHECK(true == mpu.getTemperature(temperature));
+        std::cout<<"Temperature from sensor thread: "<<temperature<<std::endl;
+        DELAY(10ms);
+    }
+    DELAY(500ms);
+
+    mpu.disableSensorDataThread();
+
     DELAY(500ms);
     
     std::cout<<"SLEEP"<<std::endl;

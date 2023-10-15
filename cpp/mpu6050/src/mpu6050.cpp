@@ -164,7 +164,7 @@ void Mpu6050::fifoReader()
     /* Enable the data ready interrupt */
     bool retVal {setRegisterValue(MPU6050_REG_INT_ENABLE, MPU6050_REG_DATA_RDY_EN_MASK | MPU6050_FIFO_OFLOW_INT_MASK, true)};
 
-    const uint8_t enableAllSensorsMask {MPU6050_REG_FIFO_TEMP_ENABLE_MASK};
+    const uint8_t enableAllSensorsMask {MPU6050_REG_FIFO_TEMP_ENABLE_MASK | MPU6050_REG_FIFO_ACCEL_ENABLE_MASK};
 
     retVal = retVal && setRegisterValue(MPU6050_REG_FIFO_ENABLE, enableAllSensorsMask, true);
 
@@ -257,11 +257,16 @@ bool Mpu6050::getTemperature(float& temperature)
 
     uint16_t registerValue {0x0u};
 
-    if (m_fifoEnabled)
+    if (m_sensorReaderThreadEnabled)
     {
-        /* Grab lock and read from FIFO_BUF instead */
+        std::lock_guard<std::mutex> sensorDataLock(m_rawDataThreadMutex);
+        registerValue = toUint16(RAW_SENSOR_DATA_BUF, MPU6050_REG_TEMP_HIGH - MPU6050_REG_ACCEL_X_HIGH);
+        retVal = true;
+    }
+    else if (m_fifoEnabled)
+    {
         std::lock_guard<std::mutex> fifoBufLock(m_fifoThreadMutex);
-        registerValue = toUint16(FIFO_BUF, 0);
+        registerValue = toUint16(FIFO_BUF, 6u);
         retVal = true;
     }
     else
@@ -376,6 +381,54 @@ bool Mpu6050::getGyro(float& x, float& y, float& z)
     return retVal;
 }
 
+bool Mpu6050::enableSensorDataThread()
+{
+    std::unique_lock<std::mutex> sensorLock(m_rawDataThreadMutex);
+
+    if (!m_sensorReaderThreadEnabled)
+    {
+        m_rawDataThread = std::thread(&Mpu6050::sensorReader, this);
+    }
+
+    /* Don't return until the sensor read thread is started */
+    m_rawDataControlNotification.wait(sensorLock);
+
+    return m_sensorReaderThreadEnabled;
+}
+
+bool Mpu6050::disableSensorDataThread()
+{
+    if (m_sensorReaderThreadEnabled)
+    {
+        m_sensorReaderThreadEnabled = false;
+
+        m_rawDataThread.join();
+    }
+
+    return true;
+}
+
+void Mpu6050::sensorReader()
+{
+    /* Enable the data ready interrupt */
+    bool retVal {setRegisterValue(MPU6050_REG_INT_ENABLE, MPU6050_REG_DATA_RDY_EN_MASK, true)};
+
+    m_sensorReaderThreadEnabled = true;
+
+    m_rawDataControlNotification.notify_one();
+
+    while (m_sensorReaderThreadEnabled)
+    {
+        if (uint8_t interrupt {0u};
+            (readRegister(MPU6050_REG_INT_STATUS, interrupt) &&
+            (MPU6050_REG_DATA_RDY_INT_MASK == (interrupt & MPU6050_REG_DATA_RDY_INT_MASK))))
+        {
+            std::lock_guard<std::mutex> sensorDataLock(m_rawDataThreadMutex);
+            bool retVal {getRegisterData(MPU6050_REG_ACCEL_X_HIGH, RAW_SENSOR_DATA_BUF, RAW_SENSOR_DATA_BUF_SIZE) > 0};
+        }
+    }
+}
+
 bool Mpu6050::writeRegister(const uint8_t mpu6050Register, const uint8_t value)
 {
     bool retVal {false};
@@ -393,8 +446,8 @@ bool Mpu6050::readRegister(const uint8_t mpu6050Register, uint8_t& value)
     bool retVal {false};
 
     uint16_t numReadAttempts {0u};
-
-    while ((numReadAttempts < 10u) && !retVal)
+    constexpr uint8_t MAX_READ_ATTEMPTS {48u};
+    while ((numReadAttempts < MAX_READ_ATTEMPTS) && !retVal)
     {
         numReadAttempts++;
         if (int regValue = i2c_smbus_read_byte_data(m_i2cFileDescriptor, mpu6050Register); 0 <= regValue)

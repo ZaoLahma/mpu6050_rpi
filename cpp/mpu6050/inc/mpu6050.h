@@ -128,6 +128,10 @@ class Mpu6050
     bool getAcceleration(float& x, float& y, float& z);
     bool getGyro(float& x, float& y, float& z);
 
+    /* Continuously read all raw data sensor values */
+    bool enableSensorDataThread();
+    bool disableSensorDataThread();
+
     /* General register write */
     bool writeRegister(const uint8_t mpu6050Register, const uint8_t value);
 
@@ -150,8 +154,18 @@ class Mpu6050
     uint8_t m_i2cAddr;
     int m_i2cFileDescriptor;
 
+    /* Raw sensor data buffer */
+    static const uint8_t RAW_SENSOR_DATA_BUF_SIZE {14u};
+    uint8_t RAW_SENSOR_DATA_BUF[RAW_SENSOR_DATA_BUF_SIZE];
+    bool m_sensorReaderThreadEnabled {false};
+    std::thread m_rawDataThread;
+    std::mutex m_rawDataThreadMutex;
+    std::condition_variable m_rawDataControlNotification;
+
+    void sensorReader();
+
     /* FIFO stuff */
-    static const uint8_t FIFO_BUF_SIZE {2u};
+    static const uint8_t FIFO_BUF_SIZE {8u};
     uint8_t FIFO_BUF[FIFO_BUF_SIZE];
     bool m_fifoEnabled {false};
     std::thread m_fifoThread;
